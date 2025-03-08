@@ -29,14 +29,15 @@ typedef struct {
 } hash_map_t;
 
 typedef struct {
-    sem_t empty;
-    sem_t full;
+    pthread_cond_t empty;
+    pthread_cond_t full;
     pthread_mutex_t mutex;
     hash_map_t *topic_score_map;
     tuple_t *tuple_buf;
     char userID[5];
     int in_buf_loc;
     int out_buf_loc;
+    int fill;
     int taken;
 } comm_buf_t;
 
@@ -59,8 +60,8 @@ void hashmap_delete(hash_map_t *map, const char *key);
 
 void free_hashmap(hash_map_t *map);
 
-void *mapper(void *arg);
+void mapper(void);
 
-void *reducer(void *arg);
+void reducer(int arg);
 
 #endif

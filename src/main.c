@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include "combiner.h"
 #include "hashmap.c"
@@ -26,26 +28,33 @@ int main(int argc, char *argv[]) {
     }
 
     comm_buf = mmap(NULL, num_users * sizeof(comm_buf_t), PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED, -1, 0);
-    tuple_buf_block = mmap(NULL, num_users * sizeof(tuple_t) * num_slots, PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED, -1, 0);
+    tuple_t *tuple_buf_block = mmap(NULL, num_users * sizeof(tuple_t) * num_slots, PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED, -1, 0);
+
+    pthread_mutexattr_t pshared_mtx_attr;
+    pthread_condattr_t pshared_cond_attr;
+    pthread_mutexattr_init(&pshared_mtx_attr);
+    pthread_mutexattr_setpshared(&pshared_mtx_attr, PTHREAD_PROCESS_SHARED);
+    pthread_condattr_init(&pshared_cond_attr);
+    pthread_condattr_setpshared(&pshared_cond_attr, PTHREAD_PROCESS_SHARED);
 
     for (int i = 0; i < num_users; i++) {
-        sem_init(&comm_buf[i].empty, 0, num_slots);
-        sem_init(&comm_buf[i].full, 0, 0);
-        comm_buf[i].tuple_buf = tuple_buf_block[i * num_slots]; 
+        pthread_cond_init(&comm_buf[i].empty, &pshared_cond_attr);
+        pthread_cond_init(&comm_buf[i].empty, &pshared_cond_attr);
+        comm_buf[i].tuple_buf = &tuple_buf_block[i * num_slots]; 
         if (comm_buf[i].tuple_buf == NULL){
             printf("Failure to allocate space for buffer\n");
             return -1;
         }
-        pthread_mutex_init(&comm_buf[i].mutex, NULL);
+        pthread_mutex_init(&comm_buf[i].mutex, &pshared_mtx_attr);
         comm_buf[i].in_buf_loc = 0;
         comm_buf[i].taken = 0;
+        comm_buf[i].fill = 0;
         comm_buf[i].out_buf_loc = 0;
-        comm_buf[i].topic_score_map = create_hashmap(INITIAL_CAPACITY);
 	    strcpy(comm_buf[i].userID, "x");
 
     }
 
-    int forkids = malloc(num_users * sizeof(int));
+    pid_t *forkids = malloc(num_users * sizeof(pid_t));
 
     for (int i = 0; i < num_users; i++) {
         forkids[i] = fork();
@@ -57,7 +66,7 @@ int main(int argc, char *argv[]) {
         } else if (forkids[i] == 0) {
 
             reducer(i);
-            break;
+            exit(0);
 
         } else {
             
@@ -65,10 +74,19 @@ int main(int argc, char *argv[]) {
 
         }
     }
+
+    mapper();
+
+    int i = 0;
+    while (i < num_users) {
+
+        int err = wait(NULL);
+        if (err == -1) {
+            continue;
+        }
+        i++;
+    }
     
-
-
-
     return 0;
     
 }
