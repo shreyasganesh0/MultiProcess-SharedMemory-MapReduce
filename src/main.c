@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #include "combiner.h"
 #include "hashmap.c"
@@ -39,7 +40,7 @@ int main(int argc, char *argv[]) {
 
     for (int i = 0; i < num_users; i++) {
         pthread_cond_init(&comm_buf[i].empty, &pshared_cond_attr);
-        pthread_cond_init(&comm_buf[i].empty, &pshared_cond_attr);
+        pthread_cond_init(&comm_buf[i].full, &pshared_cond_attr);
         comm_buf[i].tuple_buf = &tuple_buf_block[i * num_slots]; 
         if (comm_buf[i].tuple_buf == NULL){
             printf("Failure to allocate space for buffer\n");
@@ -50,7 +51,7 @@ int main(int argc, char *argv[]) {
         comm_buf[i].taken = 0;
         comm_buf[i].fill = 0;
         comm_buf[i].out_buf_loc = 0;
-	    strcpy(comm_buf[i].userID, "x");
+        strcpy(comm_buf[i].userID, "x");
 
     }
 

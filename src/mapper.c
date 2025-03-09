@@ -1,5 +1,4 @@
 void mapper() {
-    printf("Starting mapper\n");
   while (1) {
 
     mapper_t mapper_inp;
@@ -54,7 +53,6 @@ void mapper() {
      }
     }
 
-    printf("Read %s, and score %d and userID %s\n", mapper_inp.userID, score, mapper_inp.topic);
 
     unsigned long idx = hash_function(mapper_inp.userID);
     int pos = idx % num_users;
@@ -66,20 +64,16 @@ void mapper() {
     comm_buf_t *curr_buf = &comm_buf[pos];
     curr_buf->taken = 1;
 
-    printf("Wait the lock\n");
     pthread_mutex_lock(&curr_buf->mutex);
-    printf("Got the lock\n");
-    while (curr_buf->fill == num_slots) {
+    while (curr_buf->fill == num_slots - 1) {
       pthread_cond_wait(&curr_buf->empty, &curr_buf->mutex);
     }
-    printf("Got the lock after empty\n");
 
     if (strcmp(curr_buf->userID, mapper_inp.userID)) {
       strcpy(curr_buf->userID, mapper_inp.userID);
     }
 
     strcpy(curr_buf->tuple_buf[curr_buf->in_buf_loc].topic, mapper_inp.topic);
-    printf("Sending %s and %d\n", curr_buf->tuple_buf[curr_buf->in_buf_loc].topic, score);
     curr_buf->tuple_buf[curr_buf->in_buf_loc].score = score;
     curr_buf->in_buf_loc++;
     curr_buf->in_buf_loc = curr_buf->in_buf_loc - (curr_buf->in_buf_loc >= num_slots) * num_slots;
