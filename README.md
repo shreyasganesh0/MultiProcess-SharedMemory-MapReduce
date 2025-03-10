@@ -1,4 +1,4 @@
-# Multi Threaded MAP REDUCE
+# Multi Process MAP REDUCE
 
 
 ## Usage
